@@ -1,0 +1,1 @@
+export default async () => new Response(JSON.stringify({ success: true, service: 'credlock-omnichannel', whatsappConfigured: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID), aiConfigured: Boolean(process.env.OPENAI_API_KEY), timestamp: new Date().toISOString() }), { status: 200, headers: { 'content-type': 'application/json' } })
