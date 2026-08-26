@@ -1,370 +1,45 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  Activity,
-  AlertTriangle,
-  ArrowUpRight,
-  Bell,
-  Bot,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  CircleDot,
-  Clock3,
-  Gauge,
-  LayoutDashboard,
-  Menu,
-  Paperclip,
-  Plus,
-  RefreshCw,
-  Search,
-  Send,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
-  TicketCheck,
-  UploadCloud,
-  UserRound,
-  X,
-  Zap,
-} from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import {
-  attachmentTypes,
-  emptyMetrics,
-  escalationOptions,
-  rootCauseOptions,
-  statusOptions,
-  ticketCategories,
-  troubleshootingOptions,
-  type Metrics,
-  type Ticket,
-} from '../ticket-config'
+import { Activity, AlertTriangle, BarChart3, Bell, BookOpen, ChevronDown, ClipboardList, Clock3, Database, Gauge, Layers3, Menu, Plus, RefreshCw, Search, Send, Settings2, ShieldCheck, Smartphone, Users, X, Zap } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { backendConfigured, createRecord, getDashboard, getMetadata, listRecords, updateRecord, uploadAttachment, type ApiRecord } from '../lib/api'
+import '../ticketing.css'
 
-export const Route = createFileRoute('/')({ component: OperationsDesk })
-
-type View = 'dashboard' | 'tickets' | 'new'
-type Notice = { tone: 'success' | 'error'; message: string } | null
-
-const navItems = [
-  { id: 'dashboard' as const, label: 'Command center', icon: LayoutDashboard },
-  { id: 'tickets' as const, label: 'All tickets', icon: TicketCheck },
-  { id: 'new' as const, label: 'Create ticket', icon: Plus },
+export const Route = createFileRoute('/')({ component: TicketingSystem })
+type Module = 'dashboard' | 'tickets' | 'incidents' | 'recovery' | 'reports' | 'knowledge' | 'people' | 'broadcasts' | 'settings'
+const modules: { id: Module; label: string; icon: typeof Activity }[] = [
+  { id: 'dashboard', label: 'Command Center', icon: Gauge }, { id: 'tickets', label: 'Tickets', icon: ClipboardList }, { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
+  { id: 'recovery', label: 'Device Recovery', icon: Smartphone }, { id: 'reports', label: 'Reports & KPIs', icon: BarChart3 }, { id: 'knowledge', label: 'Knowledge Base', icon: BookOpen },
+  { id: 'people', label: 'Users & Officers', icon: Users }, { id: 'broadcasts', label: 'Broadcasts', icon: Bell }, { id: 'settings', label: 'System Settings', icon: Settings2 },
 ]
+const ticketStatus = ['OPEN','IN_PROGRESS','PENDING','RESOLVED','CLOSED']
+const priorities = ['HIGH','MEDIUM','LOW']
 
-const metricCards = [
-  { key: 'open' as const, label: 'Open tickets', icon: Activity, accent: 'cobalt' },
-  { key: 'critical' as const, label: 'Critical queue', icon: AlertTriangle, accent: 'coral' },
-  { key: 'slaCompliance' as const, label: 'SLA compliance', icon: Gauge, accent: 'lime', suffix: '%' },
-  { key: 'resolutionTime' as const, label: 'Avg. resolution', icon: Clock3, accent: 'ink', suffix: 'h' },
-]
-
-function OperationsDesk() {
-  const [view, setView] = useState<View>('dashboard')
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [metrics, setMetrics] = useState<Metrics>(emptyMetrics)
-  const [loading, setLoading] = useState(true)
-  const [notice, setNotice] = useState<Notice>(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All statuses')
-  const [mobileNav, setMobileNav] = useState(false)
-
-  const loadTickets = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/tickets')
-      if (!response.ok) throw new Error('Unable to load operations data.')
-      const data = (await response.json()) as { tickets: Ticket[]; metrics: Metrics }
-      setTickets(data.tickets)
-      setMetrics(data.metrics)
-    } catch {
-      setNotice({ tone: 'error', message: 'The live queue is unavailable. Refresh to try again.' })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadTickets()
-  }, [loadTickets])
-
-  const filteredTickets = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return tickets.filter((ticket) => {
-      const matchesSearch = !term || [ticket.ticketNumber, ticket.title, ticket.customerName, ticket.category, ticket.merchantName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
-      return matchesSearch && (statusFilter === 'All statuses' || ticket.status === statusFilter)
-    })
-  }, [search, statusFilter, tickets])
-
-  const changeView = (nextView: View) => {
-    setView(nextView)
-    setMobileNav(false)
-    setNotice(null)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  return (
-    <div className="app-shell">
-      <aside className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
-        <div className="brand-lockup">
-          <div className="brand-mark"><Zap size={18} fill="currentColor" /></div>
-          <div><strong>Resolve<span>HQ</span></strong><small>Operations control</small></div>
-        </div>
-        <button className="sidebar-close" type="button" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X /></button>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <p className="eyebrow">Workspace</p>
-          {navItems.map((item) => (
-            <button key={item.id} type="button" className={view === item.id ? 'active' : ''} onClick={() => changeView(item.id)}>
-              <item.icon size={18} /><span>{item.label}</span>{item.id === 'tickets' && <em>{metrics.open}</em>}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-signal">
-          <div className="signal-head"><span><CircleDot size={15} /> System signal</span><strong>Live</strong></div>
-          <div className="signal-bar"><i style={{ width: `${metrics.slaCompliance}%` }} /></div>
-          <p>{metrics.slaCompliance}% SLA health across the current queue.</p>
-        </div>
-        <div className="agent-card">
-          <div className="avatar">AO</div>
-          <div><strong>Ada Okafor</strong><small>Technical support officer</small></div>
-          <ChevronDown size={16} />
-        </div>
-      </aside>
-
-      {mobileNav && <button className="nav-scrim" type="button" onClick={() => setMobileNav(false)} aria-label="Close navigation" />}
-
-      <main className="main-panel">
-        <header className="topbar">
-          <button className="mobile-menu" type="button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button>
-          <div className="topbar-title"><span className="live-dot" /> Operations online <small>Last sync just now</small></div>
-          <div className="topbar-actions">
-            <button type="button" className="icon-button" onClick={() => void loadTickets()} aria-label="Refresh tickets"><RefreshCw size={18} /></button>
-            <button type="button" className="icon-button notification" aria-label="Notifications"><Bell size={18} /><i /></button>
-            <button type="button" className="primary-button compact" onClick={() => changeView('new')}><Plus size={17} /> New ticket</button>
-          </div>
-        </header>
-
-        {notice && <div className={`notice notice-${notice.tone}`}><span>{notice.tone === 'success' ? <CheckCircle2 /> : <AlertTriangle />}</span>{notice.message}<button type="button" onClick={() => setNotice(null)}><X size={16} /></button></div>}
-
-        {view === 'new' ? (
-          <TicketForm
-            onCancel={() => changeView('dashboard')}
-            onCreated={(ticket) => {
-              setNotice({ tone: 'success', message: `${ticket.ticketNumber} was created with automatic triage recommendations.` })
-              setView('dashboard')
-              void loadTickets()
-            }}
-          />
-        ) : (
-          <div className="page-content">
-            <section className="page-heading">
-              <div><p className="eyebrow">Friday, 31 July 2026</p><h1>{view === 'dashboard' ? 'Command center' : 'Ticket register'}</h1><p>{view === 'dashboard' ? 'See pressure points, protect SLAs, and move every case forward.' : 'Search, filter, and review the complete operations queue.'}</p></div>
-              <div className="heading-badge"><Bot size={19} /><span><strong>AI triage active</strong><small>Pattern checks on every ticket</small></span></div>
-            </section>
-
-            {view === 'dashboard' && (
-              <>
-                <section className="metrics-grid">
-                  {metricCards.map((card) => (
-                    <article className={`metric-card accent-${card.accent}`} key={card.key}>
-                      <div className="metric-icon"><card.icon size={20} /></div>
-                      <p>{card.label}</p>
-                      <div className="metric-value">{loading ? <span className="skeleton short" /> : <>{metrics[card.key]}{card.suffix}</>}</div>
-                      <span className="metric-foot">Live operational measure <ArrowUpRight size={14} /></span>
-                    </article>
-                  ))}
-                </section>
-
-                <section className="dashboard-grid">
-                  <article className="panel queue-panel">
-                    <div className="panel-head"><div><p className="eyebrow">Workload</p><h2>Queue by issue family</h2></div><span className="period-chip">Live</span></div>
-                    <QueueBars metrics={metrics} />
-                  </article>
-                  <article className="panel ai-panel">
-                    <div className="ai-orbit"><Sparkles size={22} /></div>
-                    <p className="eyebrow">AI field note</p>
-                    <h2>{metrics.imeiValidation > 0 ? 'IMEI checks need attention' : 'Queue is ready for triage'}</h2>
-                    <p>{metrics.imeiValidation > 0 ? `${metrics.imeiValidation} ticket${metrics.imeiValidation === 1 ? '' : 's'} request IMEI validation. Reconcile portal and device records before a replacement or unlock.` : 'New tickets are checked for repeat customers, duplicate cases, IMEI mismatches, and SLA risk.'}</p>
-                    <button type="button" onClick={() => changeView('tickets')}>Review flagged work <ArrowUpRight size={16} /></button>
-                  </article>
-                </section>
-                <section className="detail-metrics" aria-label="Detailed dashboard metrics">
-                  {[
-                    ['Total tickets', metrics.total],
-                    ['Pending', metrics.pending],
-                    ['Closed', metrics.closed],
-                    ['First response', `${metrics.firstResponseTime}m`],
-                    ['IMEI requests', metrics.imeiValidation],
-                    ['Device changes', metrics.deviceChanges],
-                    ['Duplicate payments', metrics.duplicatePayments],
-                    ['Officer performance', `${metrics.officerPerformance}%`],
-                    ['Merchant performance', `${metrics.merchantPerformance}%`],
-                    ['Recurring issues', metrics.recurringIssues],
-                    ['AI insights', metrics.aiInsights],
-                  ].map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}
-                </section>
-              </>
-            )}
-
-            <section className="panel ticket-panel">
-              <div className="panel-head ticket-panel-head">
-                <div><p className="eyebrow">Case flow</p><h2>{view === 'dashboard' ? 'Recent tickets' : 'All tickets'}</h2></div>
-                {view === 'dashboard' ? <button className="text-button" type="button" onClick={() => changeView('tickets')}>View register <ArrowUpRight size={15} /></button> : <span className="record-count">{filteredTickets.length} records</span>}
-              </div>
-              <div className="table-tools">
-                <label className="search-box"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ID, customer, merchant..." /></label>
-                <label className="select-wrap"><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</select><ChevronDown size={16} /></label>
-              </div>
-              <TicketTable tickets={view === 'dashboard' ? filteredTickets.slice(0, 6) : filteredTickets} loading={loading} onCreate={() => changeView('new')} />
-            </section>
-          </div>
-        )}
-      </main>
-    </div>
-  )
+function TicketingSystem() {
+  const [module,setModule]=useState<Module>('dashboard'),[metrics,setMetrics]=useState<ApiRecord>({}),[tickets,setTickets]=useState<ApiRecord[]>([]),[records,setRecords]=useState<ApiRecord[]>([]),[schema,setSchema]=useState<Record<string,string[]>>({}),[loading,setLoading]=useState(true),[notice,setNotice]=useState(''),[search,setSearch]=useState(''),[status,setStatus]=useState('ALL'),[showNew,setShowNew]=useState(false),[mobileNav,setMobileNav]=useState(false)
+  const refresh=async()=>{setLoading(true);try{const [d,m]=await Promise.all([getDashboard(),getMetadata()]);setMetrics(d.metrics);setTickets(d.tickets);setSchema(m.schema);setNotice('')}catch(e){setNotice(e instanceof Error?e.message:'Unable to reach the Google Sheets backend.')}finally{setLoading(false)}}
+  useEffect(()=>{void refresh()},[])
+  const openModule=async(next:Module)=>{setModule(next);setMobileNav(false);if(next==='dashboard'||next==='tickets')return;const table=tableForModule(next);if(!table)return;setLoading(true);try{const r=await listRecords(table,500);setRecords(r.records);setNotice('')}catch(e){setNotice(e instanceof Error?e.message:'Unable to load records.')}finally{setLoading(false)}}
+  const filtered=useMemo(()=>{const term=search.toLowerCase().trim();return tickets.filter(t=>{const okStatus=status==='ALL'||String(t.Status||'').toUpperCase()===status;const text=[t['Ticket ID'],t['Issue Title'],t['Customer Name'],t['Contact Phone'],t.Category,t.Priority,t['Customer Device / IMEI']].join(' ').toLowerCase();return okStatus&&(!term||text.includes(term))})},[tickets,search,status])
+  return <div className="ticket-app">
+    <aside className={`ticket-sidebar ${mobileNav?'open':''}`}><div className="ticket-brand"><div className="brand-icon"><Zap size={19} fill="currentColor"/></div><div><strong>Credlock<span>Desk</span></strong><small>Technical support control</small></div></div><button className="sidebar-close" onClick={()=>setMobileNav(false)}><X size={19}/></button><p className="nav-label">Operations</p><nav>{modules.map(item=>{const Icon=item.icon;return <button key={item.id} className={module===item.id?'active':''} onClick={()=>void openModule(item.id)}><Icon size={18}/><span>{item.label}</span>{item.id==='tickets'&&Number(metrics.open||0)>0&&<em>{String(metrics.open)}</em>}</button>})}</nav><div className="sidebar-health"><div><span><Activity size={14}/> System health</span><strong>Live</strong></div><div className="health-bar"><i style={{width:`${Number(metrics.slaCompliance??100)}%`}}/></div><small>{String(metrics.slaCompliance??100)}% SLA compliance</small></div><div className="sidebar-user"><div className="avatar">TS</div><div><strong>Technical Support</strong><small>Credlock operations</small></div><ChevronDown size={15}/></div></aside>
+    {mobileNav&&<button className="mobile-scrim" onClick={()=>setMobileNav(false)} aria-label="Close navigation"/>}
+    <main className="ticket-main"><header className="ticket-topbar"><button className="mobile-menu" onClick={()=>setMobileNav(true)}><Menu/></button><div className="online"><i/> Operations online <span>• Africa/Lagos</span></div><div className="top-actions"><button onClick={()=>void refresh()} title="Refresh"><RefreshCw size={17}/></button><button title="Notifications"><Bell size={17}/></button><button className="new-button" onClick={()=>setShowNew(true)}><Plus size={17}/> New ticket</button></div></header>
+      {notice&&<div className="notice"><AlertTriangle size={17}/><span>{notice}</span><button onClick={()=>setNotice('')}><X size={15}/></button></div>}
+      {!backendConfigured()&&<div className="config-banner"><Database size={18}/><div><strong>Connect Google Sheets</strong><span>Set <code>VITE_APPS_SCRIPT_URL</code> to the deployed Apps Script /exec URL.</span></div></div>}
+      <section className="ticket-content"><div className="content-head"><div><p className="kicker">Credlock technical support</p><h1>{titleForModule(module)}</h1><p>{descriptionForModule(module)}</p></div><div className="head-badge"><ShieldCheck size={17}/><span><strong>Google Sheets backend</strong><small>AJAX API connected</small></span></div></div>
+        {module==='dashboard'&&<Dashboard metrics={metrics} tickets={tickets} onTickets={()=>void openModule('tickets')}/>} {module==='tickets'&&<TicketRegister tickets={filtered} loading={loading} search={search} setSearch={setSearch} status={status} setStatus={setStatus} onNew={()=>setShowNew(true)}/>} {module!=='dashboard'&&module!=='tickets'&&<GenericModule module={module} records={records} loading={loading} schema={schema}/>}</section>
+    </main>{showNew&&<NewTicket onClose={()=>setShowNew(false)} onCreated={async()=>{setShowNew(false);setNotice('Ticket created successfully.');await refresh();setModule('tickets')}}/>}</div>
 }
 
-function QueueBars({ metrics }: { metrics: Metrics }) {
-  const queue = [
-    { label: 'Technical', value: metrics.technicalIssues, color: 'var(--cobalt)' },
-    { label: 'Customer', value: metrics.customerIssues, color: 'var(--coral)' },
-    { label: 'Loan', value: metrics.loanIssues, color: 'var(--lime-dark)' },
-    { label: 'Merchant', value: metrics.merchantIssues, color: 'var(--ochre)' },
-  ]
-  const maximum = Math.max(...queue.map((item) => item.value), 1)
-  return <div className="queue-bars">{queue.map((item) => <div className="queue-row" key={item.label}><span>{item.label}</span><div><i style={{ width: `${Math.max((item.value / maximum) * 100, item.value ? 8 : 0)}%`, background: item.color }} /></div><strong>{item.value}</strong></div>)}</div>
-}
-
-function TicketTable({ tickets, loading, onCreate }: { tickets: Ticket[]; loading: boolean; onCreate: () => void }) {
-  if (loading) return <div className="table-loading">{[1, 2, 3, 4].map((item) => <div className="skeleton-row" key={item}><span className="skeleton" /><span className="skeleton" /><span className="skeleton short" /></div>)}</div>
-  if (!tickets.length) return <div className="empty-state"><div><TicketCheck size={28} /></div><h3>No tickets in this view</h3><p>Create the first case or adjust the filters to see more work.</p><button className="primary-button" type="button" onClick={onCreate}><Plus size={17} /> Create ticket</button></div>
-
-  return (
-    <div className="table-scroll"><table><thead><tr><th>Ticket</th><th>Customer / merchant</th><th>Issue</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id}><td><strong className="ticket-id">{ticket.ticketNumber}</strong><span className="ticket-title">{ticket.title}</span></td><td><strong>{ticket.customerName}</strong><span>{ticket.merchantName || ticket.customerPhone}</span></td><td><span className="issue-cell"><Smartphone size={15} />{ticket.category}</span></td><td><span className={`priority priority-${ticket.priority.toLowerCase()}`}>{ticket.priority}</span></td><td><span className={`status status-${ticket.status.toLowerCase().replaceAll(' ', '-')}`}><i />{ticket.status}</span></td><td><span>{formatDate(ticket.createdAt)}</span></td></tr>)}</tbody></table></div>
-  )
-}
-
-function TicketForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (ticket: Ticket) => void }) {
-  const [category, setCategory] = useState('App Crash')
-  const [priority, setPriority] = useState('Medium')
-  const [status, setStatus] = useState('Pending')
-  const [imeiRequired, setImeiRequired] = useState(false)
-  const [validationResult, setValidationResult] = useState('Match')
-  const [troubleshooting, setTroubleshooting] = useState<string[]>([])
-  const [files, setFiles] = useState<File[]>([])
-  const [attachmentCategory, setAttachmentCategory] = useState('Screenshot')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  const toggleTroubleshooting = (item: string) => setTroubleshooting((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])
-  const showDeviceChange = category === 'Device Change' || category === 'Device Replacement'
-  const showLoan = category.includes('Loan') || ['BNPL Operations', 'Down Payment', 'Outstanding Balance', 'Collections', 'Repayment'].includes(category)
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setSubmitting(true)
-    const form = event.currentTarget
-    const values = new FormData(form)
-    const payload = Object.fromEntries(values.entries()) as Record<string, string | File>
-    delete payload.attachments
-    const body = new FormData()
-    body.set('payload', JSON.stringify({ ...payload, category, priority, status, imeiValidationRequired: imeiRequired, validationResult, troubleshooting }))
-    body.set('attachmentCategory', attachmentCategory)
-    files.forEach((file) => body.append('attachments', file))
-
-    try {
-      const response = await fetch('/api/tickets', { method: 'POST', body })
-      const data = (await response.json()) as { ticket?: Ticket; error?: string }
-      if (!response.ok || !data.ticket) throw new Error(data.error || 'Ticket creation failed.')
-      onCreated(data.ticket)
-    } catch (submissionError) {
-      setError(submissionError instanceof Error ? submissionError.message : 'Ticket creation failed.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form className="ticket-form" onSubmit={submit}>
-      <div className="form-hero"><button className="back-button" type="button" onClick={onCancel}><X size={18} /> Close</button><div><p className="eyebrow">New operations case</p><h1>Create a precise ticket.</h1><p>Capture enough context for the next team to act without another call.</p></div><div className="form-progress"><span>Required fields</span><strong>5</strong></div></div>
-      {error && <div className="form-error"><AlertTriangle size={18} />{error}</div>}
-      <div className="form-layout">
-        <div className="form-sections">
-          <FormSection number="01" title="Ticket essentials" subtitle="Ownership, urgency, and issue classification.">
-            <div className="field-grid cols-2"><Field label="Ticket title" required><input name="title" required placeholder="e.g. Device remains locked after repayment" /></Field><Field label="Issue category" required><Select value={category} onChange={setCategory} options={[...ticketCategories]} /></Field><Field label="Priority"><Segmented value={priority} onChange={setPriority} options={['Low', 'Medium', 'High', 'Critical']} /></Field><Field label="Resolution status"><Select value={status} onChange={setStatus} options={statusOptions} /></Field><Field label="Assigned officer"><input name="assignedOfficer" placeholder="Officer name" /></Field><Field label="Escalated to"><Select name="escalatedTo" options={['Not escalated', ...escalationOptions]} /></Field></div>
-          </FormSection>
-
-          <FormSection number="02" title="Customer & merchant" subtitle="Identify the people and partner connected to the case.">
-            <div className="field-grid cols-2"><Field label="Customer name" required><input name="customerName" required placeholder="Full name" /></Field><Field label="Phone number" required><input name="customerPhone" required inputMode="tel" placeholder="+234..." /></Field><Field label="Merchant name"><input name="merchantName" placeholder="Merchant or store" /></Field><Field label="NIN"><input name="customerNin" placeholder="National identity number" /></Field><Field label="BVN"><input name="customerBvn" placeholder="Bank verification number" /></Field></div>
-          </FormSection>
-
-          <FormSection number="03" title="IMEI validation" subtitle="Reconcile device and portal identity before action.">
-            <div className="binary-question"><div><strong>IMEI validation required?</strong><span>Turn this on for validation, duplicate IMEI, enrollment, lock, and device-change cases.</span></div><label className="switch"><input type="checkbox" checked={imeiRequired} onChange={(event) => setImeiRequired(event.target.checked)} /><span /></label></div>
-            {imeiRequired && <div className="conditional-fields"><div className="field-grid cols-2"><Field label="Correct IMEI"><input name="correctImei" inputMode="numeric" /></Field><Field label="Incorrect IMEI"><input name="incorrectImei" inputMode="numeric" /></Field><Field label="Portal IMEI"><input name="portalImei" inputMode="numeric" /></Field><Field label="Device IMEI"><input name="deviceImei" inputMode="numeric" /></Field><Field label="Validation result"><Segmented value={validationResult} onChange={setValidationResult} options={['Match', 'Mismatch']} /></Field><Field label="Reason"><input name="imeiReason" placeholder="Explain the discrepancy or request" /></Field></div></div>}
-          </FormSection>
-
-          {showDeviceChange && <FormSection number="04" title="Device change" subtitle="Preserve the audit trail between devices."><div className="field-grid cols-2"><Field label="Old IMEI"><input name="oldImei" inputMode="numeric" /></Field><Field label="New IMEI"><input name="newImei" inputMode="numeric" /></Field><Field label="Reason for change" wide><textarea name="deviceChangeReason" rows={3} placeholder="Why is this device being changed?" /></Field></div></FormSection>}
-
-          {showLoan && <FormSection number="05" title="Loan information" subtitle="Capture the financial position at the time of the issue."><div className="field-grid cols-3"><Field label="Loan amount"><input name="loanAmount" type="number" min="0" step="0.01" /></Field><Field label="Outstanding balance"><input name="outstandingBalance" type="number" min="0" step="0.01" /></Field><Field label="Due balance"><input name="dueBalance" type="number" min="0" step="0.01" /></Field><Field label="Loan status"><input name="loanStatus" placeholder="Active, overdue, closed..." /></Field><Field label="Loan date"><input name="loanDate" type="date" /></Field><Field label="Due date"><input name="dueDate" type="date" /></Field></div></FormSection>}
-
-          <FormSection number="06" title="Issue narrative" subtitle="Describe the event, reproduction path, and outcome clearly.">
-            <div className="field-grid"><Field label="Issue description" required wide hint="Describe the issue in detail."><textarea name="description" required rows={5} placeholder="What happened, when did it start, and who is affected?" /></Field><Field label="Steps to reproduce" wide><textarea name="stepsToReproduce" rows={4} placeholder="1. Open the app..." /></Field><Field label="Expected result" wide><textarea name="expectedResult" rows={3} placeholder="What should have happened?" /></Field><Field label="Actual result" wide><textarea name="actualResult" rows={3} placeholder="What happened instead? Include exact error text." /></Field></div>
-          </FormSection>
-
-          <FormSection number="07" title="Troubleshooting done" subtitle="Prevent repeated work by recording completed checks.">
-            <div className="check-grid">{troubleshootingOptions.map((item) => <label className={troubleshooting.includes(item) ? 'checked' : ''} key={item}><input type="checkbox" checked={troubleshooting.includes(item)} onChange={() => toggleTroubleshooting(item)} /><span><Check size={14} /></span>{item}</label>)}</div>
-          </FormSection>
-
-          <FormSection number="08" title="Evidence & resolution" subtitle="Attach proof, record the cause, and outline the fix.">
-            <div className="field-grid cols-2"><Field label="Attachment type"><Select value={attachmentCategory} onChange={setAttachmentCategory} options={attachmentTypes} /></Field><Field label="Root cause analysis"><Select name="rootCause" options={['Select root cause', ...rootCauseOptions]} /></Field><Field label="Resolution" wide><textarea name="resolution" rows={4} placeholder="Document the resolution or next action." /></Field></div>
-            <label className="upload-zone"><input name="attachments" type="file" multiple accept="image/*,video/*,.pdf,.txt,.log" onChange={(event) => setFiles(Array.from(event.target.files || []))} /><UploadCloud size={26} /><strong>{files.length ? `${files.length} file${files.length === 1 ? '' : 's'} selected` : 'Drop evidence here or browse'}</strong><span>Images, video, PDF, TXT or LOG · max 10 MB each</span></label>
-            {files.length > 0 && <div className="file-list">{files.map((file) => <span key={`${file.name}-${file.size}`}><Paperclip size={14} />{file.name}<small>{formatBytes(file.size)}</small></span>)}</div>}
-          </FormSection>
-
-          <FormSection number="09" title="Approval trail" subtitle="Record reviewers now or complete this after resolution.">
-            <div className="approval-grid"><ApprovalCard role="Technical Support Officer" name="approvalTechnicalOfficer" /><ApprovalCard role="Operations Manager" name="approvalOperationsManager" /><ApprovalCard role="Technical Manager" name="approvalTechnicalManager" /></div>
-            <div className="field-grid cols-2 approval-fields"><Field label="Approval date"><input name="approvalDate" type="date" /></Field><Field label="Remarks"><input name="approvalRemarks" placeholder="Approval remarks" /></Field></div>
-          </FormSection>
-        </div>
-
-        <aside className="recommendation-card">
-          <div className="recommendation-title"><span><Sparkles size={19} /></span><div><p className="eyebrow">Automatic</p><h2>AI recommendation</h2></div></div>
-          <p>Recommendations are generated when the ticket is submitted using issue type, IMEI state, priority, and previous cases.</p>
-          <ul><li><ShieldCheck size={17} /><span><strong>Duplicate scan</strong>Customer, IMEI, and category history</span></li><li><Smartphone size={17} /><span><strong>Identity check</strong>Portal versus device IMEI</span></li><li><Clock3 size={17} /><span><strong>SLA target</strong>Priority-based response window</span></li><li><Bot size={17} /><span><strong>Next best action</strong>Suggested troubleshooting and owner</span></li></ul>
-          <div className="recommendation-preview"><span>Current signal</span><strong>{priority === 'Critical' ? 'Immediate triage' : imeiRequired && validationResult === 'Mismatch' ? 'IMEI mismatch review' : 'Standard assessment'}</strong></div>
-        </aside>
-      </div>
-      <div className="form-actions"><div><ShieldCheck size={18} /><span>Files are stored securely with the case record.</span></div><button className="secondary-button" type="button" onClick={onCancel}>Cancel</button><button className="primary-button submit-button" type="submit" disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={17} /> Creating...</> : <><Send size={17} /> Create ticket</>}</button></div>
-    </form>
-  )
-}
-
-function FormSection({ number, title, subtitle, children }: { number: string; title: string; subtitle: string; children: React.ReactNode }) {
-  return <section className="form-section"><div className="section-heading"><span>{number}</span><div><h2>{title}</h2><p>{subtitle}</p></div></div><div className="section-body">{children}</div></section>
-}
-
-function Field({ label, hint, required, wide, children }: { label: string; hint?: string; required?: boolean; wide?: boolean; children: React.ReactNode }) {
-  return <label className={`field ${wide ? 'field-wide' : ''}`}><span>{label}{required && <em>*</em>}</span>{children}{hint && <small>{hint}</small>}</label>
-}
-
-function Select({ options, value, onChange, name }: { options: readonly string[]; value?: string; onChange?: (value: string) => void; name?: string }) {
-  return <span className="select-wrap field-select"><select name={name} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined}>{options.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={16} /></span>
-}
-
-function Segmented({ options, value, onChange }: { options: string[]; value: string; onChange: (value: string) => void }) {
-  return <span className="segmented">{options.map((option) => <button type="button" className={option === value ? 'active' : ''} onClick={() => onChange(option)} key={option}>{option}</button>)}</span>
-}
-
-function ApprovalCard({ role, name }: { role: string; name: string }) {
-  return <label className="approval-card"><span><UserRound size={17} />{role}</span><input name={name} placeholder="Approver name" /></label>
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value))
-}
-
-function formatBytes(bytes: number) {
-  return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
+function Dashboard({metrics,tickets,onTickets}:{metrics:ApiRecord;tickets:ApiRecord[];onTickets:()=>void}){const cards=[['Open tickets',metrics.open??0,Activity],['Critical queue',metrics.critical??0,AlertTriangle],['SLA compliance',`${metrics.slaCompliance??100}%`,Gauge],['Avg. resolution',`${metrics.resolutionTime??0}h`,Clock3]] as const;return <><div className="metric-grid">{cards.map(([label,value,Icon])=><article className="metric-card" key={label}><div className="metric-top"><span>{label}</span><Icon size={19}/></div><strong>{String(value)}</strong><small>Live operational measure</small></article>)}</div><div className="dashboard-two"><section className="panel"><div className="panel-title"><div><p className="kicker">Queue health</p><h2>Issue families</h2></div><button className="link-button" onClick={onTickets}>View register →</button></div><Queue label="Technical" value={Number(metrics.technicalIssues||0)} max={Math.max(Number(metrics.total||1),1)}/><Queue label="Customer" value={Number(metrics.customerIssues||0)} max={Math.max(Number(metrics.total||1),1)}/><Queue label="BNPL / Loan" value={Number(metrics.loanIssues||0)} max={Math.max(Number(metrics.total||1),1)}/><Queue label="Merchant" value={Number(metrics.merchantIssues||0)} max={Math.max(Number(metrics.total||1),1)}/></section><section className="panel insight"><div className="insight-icon"><Zap size={20}/></div><p className="kicker">Support intelligence</p><h2>{Number(metrics.critical||0)?'Critical tickets need action':'Queue is stable'}</h2><p>{Number(metrics.critical||0)?`${metrics.critical} high-priority active ticket(s) are still in the queue.`:'Automatic SLA, IMEI, duplicate-payment and recurring-issue checks are active.'}</p><button onClick={onTickets}>Review flagged work <Send size={15}/></button></section></div><section className="panel recent"><div className="panel-title"><div><p className="kicker">Latest activity</p><h2>Recent tickets</h2></div><span className="count-chip">{tickets.length}</span></div><MiniTable tickets={tickets.slice(0,7)}/></section><div className="stat-strip">{[['Total',metrics.total],['Pending',metrics.pending],['Closed',metrics.closed],['FRT',`${metrics.firstResponseTime??0}m`],['IMEI checks',metrics.imeiValidation],['Reopened',metrics.reopened],['Recurring',metrics.recurringIssues],['AI insights',metrics.aiInsights]].map(([a,b])=><div key={String(a)}><span>{a}</span><strong>{String(b??0)}</strong></div>)}</div></>}
+function Queue({label,value,max}:{label:string;value:number;max:number}){return <div className="queue-line"><span>{label}</span><div><i style={{width:`${Math.min(100,Math.max(value?7:0,value/max*100))}%`}}/></div><strong>{value}</strong></div>}
+function TicketRegister({tickets,loading,search,setSearch,status,setStatus,onNew}:{tickets:ApiRecord[];loading:boolean;search:string;setSearch:(v:string)=>void;status:string;setStatus:(v:string)=>void;onNew:()=>void}){return <section className="panel register"><div className="panel-title"><div><p className="kicker">Case flow</p><h2>Ticket register</h2></div><button className="new-button" onClick={onNew}><Plus size={16}/> New ticket</button></div><div className="toolbar"><label><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search ticket, customer, IMEI..."/></label><select value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option>{ticketStatus.map(x=><option key={x}>{x}</option>)}</select></div>{loading?<LoadingRows/>:<MiniTable tickets={tickets} full/>}</section>}
+function MiniTable({tickets,full=false}:{tickets:ApiRecord[];full?:boolean}){if(!tickets.length)return <div className="empty"><ClipboardList size={28}/><h3>No tickets found</h3><p>Create a ticket or change your filters.</p></div>;return <div className="table-wrap"><table><thead><tr><th>Ticket</th><th>Issue</th><th>Customer / Merchant</th><th>Priority</th><th>Status</th><th>Created</th>{full&&<th>SLA</th>}</tr></thead><tbody>{tickets.map((t,i)=><tr key={String(t['Record ID']||i)}><td><strong>#{String(t['Ticket ID']||'—')}</strong><small>{String(t['Issue Title']||'Untitled issue')}</small></td><td><span>{String(t.Category||'—')}</span><small>{String(t.Source||t.Channel||'Web Portal')}</small></td><td><strong>{String(t['Customer Name']||t['Reported By Email']||'—')}</strong><small>{String(t['Customer / Merchant Phone']||t['Contact Phone']||'')}</small></td><td><span className={`pill priority-${String(t.Priority||'LOW').toLowerCase()}`}>{String(t.Priority||'LOW')}</span></td><td><span className={`pill status-${String(t.Status||'OPEN').toLowerCase()}`}>{String(t.Status||'OPEN')}</span></td><td>{formatDate(t['Date Created'])}</td>{full&&<td><span className={String(t['SLA Met']).toLowerCase()==='true'?'sla-ok':'sla-risk'}>{String(t['SLA Met']).toLowerCase()==='true'?'Met':t['SLA Met']?'At risk':'—'}</span></td>}</tr>)}</tbody></table></div>}
+function GenericModule({module,records,loading,schema}:{module:Module;records:ApiRecord[];loading:boolean;schema:Record<string,string[]>}){const table=tableForModule(module);const fields=table?(schema[table]||[]).filter(x=>x!=='Record ID').slice(0,8):[];return <section className="panel generic"><div className="panel-title"><div><p className="kicker">{table}</p><h2>Operational records</h2></div><span className="count-chip">{records.length}</span></div>{loading?<LoadingRows/>:!records.length?<div className="empty"><Layers3 size={28}/><h3>No records yet</h3><p>This module is ready for Google Sheets data.</p></div>:<div className="table-wrap"><table><thead><tr>{fields.map(f=><th key={f}>{f}</th>)}</tr></thead><tbody>{records.map((row,i)=><tr key={String(row['Record ID']||i)}>{fields.map(f=><td key={f}>{formatCell(row[f])}</td>)}</tr>)}</tbody></table></div>}</section>}
+function NewTicket({onClose,onCreated}:{onClose:()=>void;onCreated:()=>Promise<void>}){const[submitting,setSubmitting]=useState(false),[error,setError]=useState(''),[files,setFiles]=useState<File[]>([]);async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setSubmitting(true);setError('');const data=new FormData(e.currentTarget);const record:ApiRecord={'Issue Title':data.get('title')||'',Description:data.get('description')||'',Category:data.get('category')||'App / Login Issue',Priority:data.get('priority')||'MEDIUM',Status:'OPEN','Reported By Email':data.get('email')||'','Customer Name':data.get('customer')||'','Customer / Merchant Phone':data.get('phone')||'','Customer Device / IMEI':data.get('imei')||'',Source:data.get('source')||'Web Portal','Subject Type':data.get('subject')||'Customer','SLA Target (Minutes)':Number(data.get('sla')||1440),'Action Reason':data.get('actionReason')||'','Date Created':new Date().toISOString(),Channel:data.get('source')||'Web Portal','Reopen Count':0};try{const created=await createRecord('Issues',record);const urls:string[]=[];for(const file of files){const uploaded=await uploadAttachment(file);urls.push(uploaded.file.url)}if(urls.length&&created.record['Record ID'])await updateRecord('Issues',String(created.record['Record ID']),{'Attachment URLs':urls.join(', ')});await onCreated()}catch(err){setError(err instanceof Error?err.message:'Unable to create ticket.')}finally{setSubmitting(false)}}return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><div><p className="kicker">Case intake</p><h2>Create support ticket</h2></div><button onClick={onClose}><X/></button></div>{error&&<div className="form-error"><AlertTriangle size={16}/>{error}</div>}<form onSubmit={submit}><div className="form-grid"><label>Issue title<input name="title" required placeholder="e.g. Manager App cannot sync policy"/></label><label>Reported by email<input name="email" type="email" placeholder="officer@credlock.com"/></label><label className="span-2">Description<textarea name="description" required placeholder="Describe the issue, error message and what has already been tried."/></label><label>Category<select name="category"><option>App / Login Issue</option><option>Device / IMEI</option><option>BNPL Operations</option><option>Merchant Support</option><option>Payment / Reversal</option><option>Collections</option></select></label><label>Priority<select name="priority">{priorities.map(x=><option key={x}>{x}</option>)}</select></label><label>Customer / Merchant<select name="subject"><option>Customer</option><option>Merchant</option></select></label><label>Source<select name="source"><option>Web Portal</option><option>WhatsApp</option><option>Email</option><option>Phone</option><option>Walk-In</option><option>Merchant Support Portal</option></select></label><label>Customer name<input name="customer"/></label><label>Phone<input name="phone"/></label><label>Device / IMEI<input name="imei" placeholder="IMEI or device reference"/></label><label>SLA target (minutes)<input name="sla" type="number" defaultValue="1440" min="1"/></label><label className="span-2">Action / resolution context<textarea name="actionReason"/></label><label className="span-2">Attachments<input type="file" multiple onChange={e=>setFiles(Array.from(e.target.files||[]))}/><small>Files are uploaded to the configured Google Drive attachment folder.</small></label></div><div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="new-button" disabled={submitting}>{submitting?'Creating…':<><Plus size={16}/> Create ticket</>}</button></div></form></div></div>}
+function LoadingRows(){return <div className="loading-rows">{[1,2,3,4,5].map(x=><div key={x}><i/><i/><i/></div>)}</div>}
+function tableForModule(module:Module){return({tickets:'Issues',incidents:'Incidents',recovery:'Recovery Records',reports:'Monthly Evaluations',knowledge:'Knowledge Base Articles',people:'Users',broadcasts:'Broadcasts',settings:'Page Permissions'} as Record<string,string>)[module]}
+function titleForModule(module:Module){return({dashboard:'Command Center',tickets:'Ticket Register',incidents:'Incident Management',recovery:'Device Recovery',reports:'Reports & KPI Performance',knowledge:'Knowledge Base',people:'Users & Officers',broadcasts:'Broadcast Center',settings:'System Settings'} as Record<string,string>)[module]}
+function descriptionForModule(module:Module){return({dashboard:'Monitor ticket pressure, SLAs, IMEI validation and support performance.',tickets:'Search, triage, assign and close every technical support case.',incidents:'Track service-impacting incidents and their linked tickets.',recovery:'Manage device recovery records, IMEI and recovery tasks.',reports:'Review team performance, CSAT, FCR, NPS and operational KPIs.',knowledge:'Centralise troubleshooting steps, response templates and escalation paths.',people:'Manage users, roles, officers and departmental ownership.',broadcasts:'Publish operational alerts, policy updates and training notices.',settings:'Control page permissions and administrative configuration.'} as Record<string,string>)[module]}
+function formatDate(value:unknown){if(!value)return'—';const d=new Date(String(value));return isNaN(d.getTime())?String(value):d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})}
+function formatCell(value:unknown){if(value===null||value===undefined||value==='')return'—';if(typeof value==='object')return JSON.stringify(value);return String(value)}
