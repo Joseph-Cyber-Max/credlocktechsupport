@@ -1,0 +1,95 @@
+/* Credlock Support responsive experience layer */
+:root{--cx-touch:44px}
+html{scroll-behavior:smooth}
+body{margin:0;min-width:320px;background:#f3f6fb}
+button,a,input,select,textarea{touch-action:manipulation}
+.cx-app{min-height:100dvh}
+.cx-main{min-width:0}
+.cx-content{width:100%}
+.cx-nav button{min-height:var(--cx-touch)}
+.cx-actions button,.cx-iconbtn,.cx-primary,.cx-secondary{min-height:var(--cx-touch)}
+.cx-card-head{min-height:62px}
+.cx-table-wrap{-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.cx-table th{background:#f8fafc}
+.cx-table td{word-break:break-word}
+.cx-modal-bg{padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.cx-modal{width:min(980px,100%);max-height:min(92dvh,920px)}
+.cx-form input,.cx-form select,.cx-form textarea,.cx-toolbar input,.cx-toolbar select{min-height:var(--cx-touch)}
+.cx-detail-description p{overflow-wrap:anywhere}
+.cx-connection{max-width:100%}
+
+/* Tablet: turn the fixed desktop rail into a compact drawer. */
+@media (max-width:900px){
+  .cx-side{width:min(300px,88vw)}
+  .cx-main{margin-left:0}
+  .cx-mobile{display:inline-flex}
+  .cx-top{padding:0 18px}
+  .cx-content{padding:20px}
+  .cx-heading{gap:12px}
+  .cx-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cx-two{grid-template-columns:1fr}
+  .cx-card-head{align-items:flex-start}
+}
+
+/* Phones: prioritize queue actions and readable touch targets. */
+@media (max-width:640px){
+  .cx-top{height:auto;min-height:60px;padding:10px 12px;gap:10px}
+  .cx-top-left{font-size:11px;min-width:0}
+  .cx-actions{margin-left:auto}
+  .cx-actions>button:not(.cx-primary){display:none}
+  .cx-actions .cx-primary{font-size:0;padding:10px;width:44px;justify-content:center}
+  .cx-actions .cx-primary svg{margin:0}
+  .cx-content{padding:12px}
+  .cx-heading h1{font-size:23px}
+  .cx-heading p{font-size:12px;line-height:1.45}
+  .cx-connection{font-size:10px;line-height:1.35;padding:8px 10px}
+  .cx-metrics{grid-template-columns:1fr 1fr;gap:9px}
+  .cx-metric{padding:13px}
+  .cx-metric strong{font-size:24px;margin-top:8px}
+  .cx-metric-top{font-size:10px}
+  .cx-two{gap:10px;margin-top:10px}
+  .cx-card{border-radius:13px}
+  .cx-card-head{padding:13px;min-height:56px}
+  .cx-card-head h2{font-size:14px}
+  .cx-card-body{padding:13px}
+  .cx-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cx-search{grid-column:1/-1;min-width:0}
+  .cx-toolbar select{width:100%}
+  .cx-table{min-width:760px}
+  .cx-table th{padding:10px}
+  .cx-table td{padding:11px 10px}
+  .cx-detail{padding:13px}
+  .cx-detail-grid{grid-template-columns:1fr 1fr}
+  .cx-actions-row{display:grid;grid-template-columns:1fr 1fr}
+  .cx-actions-row button{width:100%}
+  .cx-form{padding:13px;gap:10px}
+  .cx-modal-head{padding:14px}
+  .cx-modal-foot{padding:12px 14px}
+  .cx-modal-foot button{min-width:110px}
+  .cx-stat-grid{grid-template-columns:1fr 1fr}
+  .cx-stat{padding:11px 12px}
+}
+
+@media (max-width:420px){
+  .cx-metrics{grid-template-columns:1fr 1fr}
+  .cx-metric small{display:none}
+  .cx-detail-grid{grid-template-columns:1fr}
+  .cx-stat-grid{grid-template-columns:1fr 1fr}
+  .cx-actions-row{grid-template-columns:1fr}
+  .cx-toolbar{grid-template-columns:1fr}
+  .cx-search{grid-column:auto}
+  .cx-card-head .cx-secondary{display:none}
+}
+
+/* Accessibility and reduced-motion support. */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+@media (prefers-contrast:more){
+  .cx-card,.cx-table td,.cx-toolbar select,.cx-toolbar input,.cx-form input,.cx-form select,.cx-form textarea{border-color:#667085}
+  .cx-nav button.active{outline:2px solid #77b7ff}
+}
+@media (hover:none){
+  .cx-nav button:hover,.cx-table tr.clickable:hover,.cx-actions button:hover{box-shadow:none}
+}
