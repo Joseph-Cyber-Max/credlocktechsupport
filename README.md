@@ -1,49 +1,47 @@
-# ResolveHQ
+# Credlock Technical Support
 
-ResolveHQ is an operations control center for managing technical support, device lifecycle, IMEI validation, BNPL and loan operations, payments, merchants, and customer issues. It provides a structured ticket workflow, live operational metrics, durable attachments, and automatic recommendations that help support teams identify duplicate cases, IMEI mismatches, troubleshooting steps, priority, and SLA targets.
+Credlock Technical Support is a mobile-first operations control center for technical support, device lifecycle, IMEI validation, BNPL operations, recovery, customer/merchant communication and ticket management.
 
-## Key Features
+## Architecture
 
-- Command-center dashboard with ticket, SLA, priority, issue-family, and response metrics
-- Searchable ticket register with status and priority indicators
-- Comprehensive ticket intake covering customer, merchant, IMEI, device change, loan, troubleshooting, evidence, resolution, escalation, and approvals
-- Conditional sections that adapt to IMEI, device-change, and loan-related cases
-- Automatic server-side recommendations based on ticket details and previous cases
-- Persistent ticket records in Netlify Database using Drizzle ORM
-- Uploaded screenshots, videos, logs, agreements, receipts, and device evidence in Netlify Blobs
-- Responsive interface designed for desktop and mobile operations teams
+- **Primary backend:** Firebase Realtime Database + Firebase Authentication
+- **Secondary backend:** Google Sheets + Google Apps Script (`TicketDB`)
+- **Frontend:** React 19, TypeScript, TanStack Router, Vite, Tailwind CSS 4 and custom responsive CSS
+- **Server boundary:** Netlify Functions for provider webhooks, AI and privileged integrations
+- **Omnichannel:** WhatsApp conversation workspace with ticket linkage and AI triage architecture
 
-## Technology
+Firebase is the source of truth for new application transactions. Google Sheets remains the reporting/legacy mirror and management-friendly operational surface.
 
-- TanStack Start, React 19, and TanStack Router
-- TypeScript and Vite
-- Tailwind CSS 4 with a custom global design system
-- Netlify Functions
-- Netlify Database with Drizzle ORM
-- Netlify Blobs
+## Core capabilities
 
-## Local Development
+- Command Center and live queue
+- Ticket intake, assignment, SLA, escalation, resolution, closure and reopen
+- Customer and merchant support
+- Incidents and recovery operations
+- BNPL operations
+- Knowledge base and response workflows
+- Audit and permissions
+- WhatsApp/omnichannel workspace
+- AI-assisted triage and automatic ticket creation architecture
+- Responsive desktop/tablet/mobile interface
+- Firebase-first data layer with Google Sheets fallback during migration
 
-Install dependencies:
+## Frontend routes
 
-```bash
-pnpm install
-```
+- `/` — existing ticketing command center
+- `/omnichannel` — WhatsApp/unified conversation workspace
+- `/workspace` — advanced Credlock operations workspace
 
-Run the full Netlify development environment on the project port:
+## Configuration
 
-```bash
-netlify dev --port 8889
-```
+Copy `.env.example` to your deployment configuration and provide Firebase web configuration values plus the Apps Script `/exec` URL.
 
-Open `http://localhost:8889`. The Netlify CLI emulates Functions, Database, and Blobs locally.
+Never commit Firebase service-account keys, WhatsApp access tokens or OpenAI API keys. Provider secrets belong in Netlify server-side environment variables.
 
-## Database Changes
+## Google Sheets backend
 
-The schema is defined in `db/schema.ts`. After changing it, generate a migration with a short imperative name:
+The existing Apps Script endpoint remains available as the secondary integration and reporting mirror. Existing Ticket IDs and Record IDs should be retained during migration.
 
-```bash
-pnpm drizzle-kit generate --name add_ticket_field
-```
+## Firebase migration
 
-Generated migrations belong in `netlify/database/migrations/` and are applied automatically during deployment.
+See `docs/PRIMARY-BACKEND-ARCHITECTURE.md` for the source-of-truth policy, migration strategy and security requirements.
