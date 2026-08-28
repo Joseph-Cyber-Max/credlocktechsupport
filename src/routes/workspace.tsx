@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Activity, AlertTriangle, Bot, ChevronRight, Clock3, Database, Inbox, MessageCircle, Search, ShieldCheck, Smartphone, Ticket, Users, Zap } from 'lucide-react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Activity, AlertTriangle, Bot, ChevronRight, Clock3, Database, Inbox, MessageCircle, Search, Settings2, ShieldCheck, Smartphone, Ticket, Users, Zap } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { firebaseConfigured } from '../lib/firebaseRest'
 import '../workspace.css'
 
@@ -30,7 +30,7 @@ function Workspace() {
   return <div className="workspace-page">
     <header className="workspace-hero">
       <div className="workspace-title"><div className="workspace-mark"><Zap size={20}/></div><div><p className="workspace-eyebrow">Credlock operations</p><h1>Support Command Center</h1><p>One workspace for tickets, conversations, AI triage, devices and team operations.</p></div></div>
-      <div className="workspace-health"><span className="health-dot"/> Systems healthy <strong>{firebaseConfigured ? 'Firebase primary' : 'Sheets connected'}</strong></div>
+      <div className="workspace-hero-actions"><div className="workspace-health"><span className="health-dot"/> Systems healthy <strong>{firebaseConfigured ? 'Firebase primary' : 'Sheets connected'}</strong></div><Link to="/admin" className="workspace-admin-link"><Settings2 size={16}/> Admin</Link></div>
     </header>
 
     <section className="workspace-kpis">
