@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { MessageCircle, Search, Send, Sparkles, Ticket, UserRound } from 'lucide-react'
 import '../omnichannel/omnichannel.css'
 import type { Conversation, Message } from '../omnichannel/types'
+
+export const Route = createFileRoute('/omnichannel')({ component: OmnichannelPage })
 
 const demoConversations: Conversation[] = [
   { id: 'WA-DEMO-001', channel: 'WHATSAPP', contactId: 'C-001', status: 'OPEN', subject: 'Device enrollment issue', unreadCount: 2, lastMessageAt: new Date().toISOString(), aiTicketCreated: true, ticketId: 'TKT-000143' },
@@ -14,7 +17,7 @@ const demoMessages: Message[] = [
   { id: 'M-3', conversationId: 'WA-DEMO-001', direction: 'INBOUND', type: 'IMAGE', body: 'IMEI screenshot attached.', timestamp: new Date(Date.now()-30000).toISOString(), status: 'READ', senderName: 'Customer' },
 ]
 
-export default function OmnichannelPage() {
+function OmnichannelPage() {
   const [selectedId, setSelectedId] = useState(demoConversations[0].id)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
