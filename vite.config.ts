@@ -1,20 +1,26 @@
 import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import { cloudflare } from '@cloudflare/vite-plugin'
 import viteReact from '@vitejs/plugin-react'
 import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 
-const config = defineConfig({
+export default defineConfig({
+  base: '/credlocktechsupport/',
   plugins: [
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],
     }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      spa: {
+        prerender: {
+          outputPath: '/_shell.html',
+          crawlLinks: true,
+          retryCount: 2,
+          failOnError: true,
+        },
+      },
+    }),
     viteReact(),
   ],
 })
-
-export default config
