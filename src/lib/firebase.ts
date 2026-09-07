@@ -1,5 +1,15 @@
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import {
+  getApp,
+  getApps,
+  initializeApp,
+  type FirebaseApp,
+} from 'firebase/app'
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  type Auth,
+} from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 // Firebase Web configuration is safe to ship to the browser. Security is enforced
@@ -13,8 +23,24 @@ const firebaseConfig = {
   appId: '1:69083322876:web:bb3b9bca8c206b5572ba79',
 }
 
-export const firebaseApp: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig)
-export const firebaseAuth = getAuth(firebaseApp)
+export const firebaseApp: FirebaseApp = getApps().length > 0
+  ? getApp()
+  : initializeApp(firebaseConfig)
+
+// TanStack Start prerenders the SPA shell during the build. Firebase Auth's
+// default getAuth() setup assumes a browser, so use explicit dependencies for
+// server-side evaluation and normal browser persistence for the real client.
+export const firebaseAuth: Auth = (() => {
+  try {
+    if (typeof window === 'undefined') {
+      return initializeAuth(firebaseApp, { persistence: [] })
+    }
+    return getAuth(firebaseApp)
+  } catch {
+    return getAuth(firebaseApp)
+  }
+})()
+
 export const firestore = getFirestore(firebaseApp)
 export const firebaseProjectId = firebaseConfig.projectId
 
