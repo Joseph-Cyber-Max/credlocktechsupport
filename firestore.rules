@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return signedIn()
+        ? get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return role() in ['ADMIN', 'admin'];
+    }
+
+    function isManager() {
+      return role() in ['ADMIN', 'admin', 'MANAGER', 'manager', 'SUPERVISOR', 'supervisor'];
+    }
+
+    function isStaff() {
+      return role() in ['ADMIN', 'admin', 'MANAGER', 'manager', 'SUPERVISOR', 'supervisor', 'OFFICER', 'officer', 'TECH_SUPPORT', 'tech_support'];
+    }
+
+    // Staff accounts may read their own profile. Administrative users may
+    // manage the Users collection. New staff profiles should be created by an
+    // administrator after the Firebase Authentication account is created.
+    match /Users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Core operational collections. All authenticated support staff can read
+    // operational data; managers/admins control destructive changes.
+    match /Issues/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isManager();
+    }
+
+    match /Conversations/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isManager();
+    }
+
+    match /Messages/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isManager();
+    }
+
+    // All other Credlock collections follow the same staff/manager pattern.
+    match /{collection}/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isManager();
+    }
+  }
+}
