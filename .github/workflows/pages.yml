@@ -32,10 +32,21 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm build
       - name: Prepare Pages
+        shell: bash
         run: |
-          test -f dist/client/index.html
-          touch dist/client/.nojekyll
-          cp dist/client/index.html dist/client/404.html
+          set -euo pipefail
+          if [ -f dist/client/index.html ]; then
+            PUBLISH_DIR=dist/client
+          elif [ -f dist/client/_shell.html ]; then
+            PUBLISH_DIR=dist/client
+            cp dist/client/_shell.html dist/client/index.html
+          else
+            echo 'No static entry file found. Build output:'
+            find dist -maxdepth 3 -type f | sort | head -200
+            exit 1
+          fi
+          touch "$PUBLISH_DIR/.nojekyll"
+          cp "$PUBLISH_DIR/index.html" "$PUBLISH_DIR/404.html"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
