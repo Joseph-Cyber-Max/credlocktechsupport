@@ -31,11 +31,12 @@ export const firebaseApp: FirebaseApp = getApps().length > 0
 // default getAuth() setup assumes a browser, so use explicit dependencies for
 // server-side evaluation and normal browser persistence for the real client.
 export const firebaseAuth: Auth = (() => {
+  if (typeof window === 'undefined') {
+    return initializeAuth(firebaseApp, { persistence: [] })
+  }
+
   try {
-    if (typeof window === 'undefined') {
-      return initializeAuth(firebaseApp, { persistence: [] })
-    }
-    return getAuth(firebaseApp)
+    return initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence] })
   } catch {
     return getAuth(firebaseApp)
   }
