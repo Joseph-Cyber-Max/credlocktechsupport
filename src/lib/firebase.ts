@@ -12,15 +12,15 @@ import {
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-// Firebase Web configuration is safe to ship to the browser. Security is enforced
-// by Firebase Authentication and Firestore Security Rules, not by hiding this config.
+// Browser-safe Firebase configuration. Values can be supplied at deploy time;
+// the existing Credlock project values remain the development fallback.
 const firebaseConfig = {
-  apiKey: 'AIzaSyD44rLEm-i8-VLabaQTRD1c9ok8zxypCvw',
-  authDomain: 'credlock-technical-support.firebaseapp.com',
-  projectId: 'credlock-technical-support',
-  storageBucket: 'credlock-technical-support.firebasestorage.app',
-  messagingSenderId: '69083322876',
-  appId: '1:69083322876:web:bb3b9bca8c206b5572ba79',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyD44rLEm-i8-VLabaQTRD1c9ok8zxypCvw',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'credlock-technical-support.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'credlock-technical-support',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'credlock-technical-support.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '69083322876',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:69083322876:web:bb3b9bca8c206b5572ba79',
 }
 
 export const firebaseApp: FirebaseApp = getApps().length > 0
