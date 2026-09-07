@@ -1,5 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { FormEvent, useState } from 'react'
+import { FormEvent, type ReactNode, useState } from 'react'
 import { authErrorMessage, signIn, useFirebaseAuth } from '../lib/auth'
 import '../styles.css'
 import '../auth.css'
@@ -22,11 +22,11 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
   return <html lang="en"><head><HeadContent /></head><body><AuthGate>{children}</AuthGate><Scripts /></body></html>
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading } = useFirebaseAuth()
   if (loading) return <div className="credlock-login-loading">Loading Credlock Support…</div>
   if (!user) return <LoginScreen />
@@ -40,36 +40,20 @@ function LoginScreen() {
   const [error, setError] = useState('')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setBusy(true)
-    try {
-      await signIn(email, password)
-    } catch (err) {
-      setError(authErrorMessage(err))
-    } finally {
-      setBusy(false)
-    }
+    event.preventDefault(); setError(''); setBusy(true)
+    try { await signIn(email, password) }
+    catch (err) { setError(authErrorMessage(err)) }
+    finally { setBusy(false) }
   }
 
   return <main className="credlock-login-shell">
     <section className="credlock-login-card" aria-label="Credlock Support sign in">
-      <div className="credlock-login-brand">
-        <div className="credlock-login-mark">C</div>
-        <div><h1>Credlock Support</h1><p>Technical Operations</p></div>
-      </div>
-      <h2>Sign in</h2>
-      <p>Use your authorized staff account to access the support workspace.</p>
+      <div className="credlock-login-brand"><div className="credlock-login-mark">C</div><div><h1>Credlock Support</h1><p>Technical Operations</p></div></div>
+      <h2>Sign in</h2><p>Use your authorized staff account to access the support workspace.</p>
       {error && <div className="credlock-login-error" role="alert">{error}</div>}
       <form onSubmit={handleSubmit}>
-        <div className="credlock-login-field">
-          <label htmlFor="credlock-email">Email address</label>
-          <input id="credlock-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
-        </div>
-        <div className="credlock-login-field">
-          <label htmlFor="credlock-password">Password</label>
-          <input id="credlock-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
-        </div>
+        <div className="credlock-login-field"><label htmlFor="credlock-email">Email address</label><input id="credlock-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required /></div>
+        <div className="credlock-login-field"><label htmlFor="credlock-password">Password</label><input id="credlock-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></div>
         <button className="credlock-login-button" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in securely'}</button>
       </form>
       <div className="credlock-login-footer">Authorized Credlock Technical Support personnel only.</div>
