@@ -1,34 +1,36 @@
-import { firebaseConfigured, firebaseGet, firebasePatch, firebasePush, firebaseSet } from './firebaseRest'
+import { createFirestoreRecord, deleteFirestoreRecord, getFirestoreRecord, listFirestoreRecords, updateFirestoreRecord } from './firestore'
 import { createRecord, listRecords, updateRecord, type ApiRecord } from './api'
 
 export type DataSource = 'FIREBASE' | 'GOOGLE_SHEETS'
 
-export function primarySource(): DataSource {
-  return firebaseConfigured ? 'FIREBASE' : 'GOOGLE_SHEETS'
+export function primarySource(): DataSource { return 'FIREBASE' }
+
+export async function listPrimary(collection: string, limit = 500): Promise<ApiRecord[]> {
+  try { return await listFirestoreRecords(collection, limit) as ApiRecord[] }
+  catch { const result = await listRecords(collection, limit); return result.records }
 }
 
-export async function listPrimary(collection: string, limit = 500, idToken?: string): Promise<ApiRecord[]> {
-  if (firebaseConfigured && idToken) {
-    const value = await firebaseGet<Record<string, ApiRecord>>(collection, idToken)
-    return Object.entries(value || {}).slice(0, limit).map(([id, record]) => ({ id, ...record }))
-  }
-  const result = await listRecords(collection, limit)
-  return result.records
+export async function createPrimary(collection: string, record: ApiRecord): Promise<ApiRecord> {
+  try { return await createFirestoreRecord(collection, record) as ApiRecord }
+  catch { const result = await createRecord(collection, record); return result.record }
 }
 
-export async function createPrimary(collection: string, record: ApiRecord, idToken?: string): Promise<ApiRecord> {
-  if (firebaseConfigured && idToken) return firebasePush(collection, record, idToken)
-  const result = await createRecord(collection, record)
-  return result.record
+export async function updatePrimary(collection: string, id: string, record: ApiRecord): Promise<ApiRecord> {
+  try { return await updateFirestoreRecord(collection, id, record) as ApiRecord }
+  catch { const result = await updateRecord(collection, id, record); return result.record }
 }
 
-export async function updatePrimary(collection: string, id: string, record: ApiRecord, idToken?: string): Promise<ApiRecord> {
-  if (firebaseConfigured && idToken) return firebasePatch(`${collection}/${id}`, record, idToken)
-  const result = await updateRecord(collection, id, record)
-  return result.record
+export async function replacePrimary(collection: string, id: string, record: ApiRecord): Promise<ApiRecord> {
+  try { return await updateFirestoreRecord(collection, id, record) as ApiRecord }
+  catch { const result = await updateRecord(collection, id, record); return result.record }
 }
 
-export async function replacePrimary(collection: string, id: string, record: ApiRecord, idToken: string): Promise<ApiRecord> {
-  if (!firebaseConfigured) return updatePrimary(collection, id, record)
-  return firebaseSet(`${collection}/${id}`, record, idToken)
+export async function deletePrimary(collection: string, id: string) {
+  try { await deleteFirestoreRecord(collection, id); return true }
+  catch { return false }
+}
+
+export async function getPrimary(collection: string, id: string) {
+  try { return await getFirestoreRecord(collection, id) as ApiRecord | null }
+  catch { return null }
 }
