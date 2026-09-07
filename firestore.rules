@@ -2,22 +2,43 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-
-    // The application currently uses Firebase Authentication as the access gate.
-    // Fine-grained staff roles are represented in Users and will be enforced by
-    // the administrative policy layer as role profiles are provisioned.
-    match /Users/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow create: if signedIn() && request.auth.uid == uid;
-      allow update: if signedIn() && request.auth.uid == uid;
-      allow delete: if false;
+    function signedIn() {
+      return request.auth != null;
     }
 
-    // Operational collections are private to authenticated Credlock staff.
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/Users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    function isActiveStaff() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/Users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.status == 'ACTIVE';
+    }
+
+    // User profiles are keyed by Firebase Auth UID. A signed-in user may maintain
+    // their own safe profile fields; only an ADMIN may provision roles/status or
+    // manage another user's profile. Authentication credentials are never stored here.
+    match /Users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow update: if signedIn() && (
+        isAdmin() || (
+          request.auth.uid == uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == resource.data.status
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // All operational data is restricted to provisioned active staff.
+    // Destructive operations remain admin-only for auditability.
     match /{collection}/{id} {
-      allow read, create, update: if signedIn();
-      allow delete: if signedIn();
+      allow read, create, update: if isActiveStaff();
+      allow delete: if isAdmin();
     }
   }
 }
