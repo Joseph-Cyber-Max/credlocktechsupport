@@ -7,6 +7,7 @@ import {
   updateFirestoreRecord,
   type FirestoreRecord,
 } from './firestore'
+import { getCurrentUser } from './auth'
 
 export type ApiRecord = Record<string, unknown>
 type ApiEnvelope<T> = T & { success?: boolean; ok?: boolean; error?: string; message?: string }
@@ -18,7 +19,12 @@ function asApiRecord(value: FirestoreRecord | null | undefined): ApiRecord | nul
 export function backendConfigured() { return true }
 export function usingFallbackBackend() { return false }
 
+function requireSignedIn() {
+  if (!getCurrentUser()) throw new Error('Authentication required. Please sign in to access support data.')
+}
+
 async function sheetsGet<T>(url: string): Promise<T> {
+  requireSignedIn()
   const response = await fetch(url, { cache: 'no-store' })
   const raw = await response.text()
   let data: ApiEnvelope<T>
@@ -28,6 +34,7 @@ async function sheetsGet<T>(url: string): Promise<T> {
 }
 
 async function migrateFromSheets(table: string, limit = 2000) {
+  requireSignedIn()
   const data = await sheetsGet<{ records?: ApiRecord[]; tickets?: ApiRecord[] }>(`${API_URL}?action=${table === 'Issues' ? 'tickets' : 'list'}${table === 'Issues' ? '' : `&table=${encodeURIComponent(table)}`}&limit=${limit}`)
   const records = data.records ?? data.tickets ?? []
   if (!records.length) return [] as ApiRecord[]
@@ -77,9 +84,17 @@ export async function getTickets(limit=1000) { const records=await listRecords('
 export async function getDashboard() { const tickets=await getTickets(2000); return {success:true,metrics:dashboardFromTickets(tickets.records),tickets:tickets.records.slice(0,20)} }
 
 export async function listRecords(table:string,limit=500) {
-  let records=await listFirestoreRecords(table,limit) as ApiRecord[]
-  if (!records.length) records=await migrateFromSheets(table,limit)
-  return {success:true,records}
+  try {
+    let records=await listFirestoreRecords(table,limit) as ApiRecord[]
+    if (!records.length) records=await migrateFromSheets(table,limit)
+    return {success:true,records}
+  } catch (error) {
+    // Do not silently downgrade a Firestore permission/authentication failure
+    // into an unauthenticated Google Sheets read. The legacy Sheets backend is
+    // only reachable by an already authenticated operator.
+    if (!getCurrentUser()) throw new Error('Authentication required. Please sign in to access support data.')
+    throw error
+  }
 }
 
 export async function getRecord(table:string,id:string) {
