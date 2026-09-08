@@ -89,7 +89,7 @@ export async function listRecords(table:string,limit=500) {
     if (!records.length) records=await migrateFromSheets(table,limit)
     return {success:true,records}
   } catch (error) {
-    // Do not silently downgrade a Firestore permission/authentication failure
+    // Never silently downgrade a Firestore permission/authentication failure
     // into an unauthenticated Google Sheets read. The legacy Sheets backend is
     // only reachable by an already authenticated operator.
     if (!getCurrentUser()) throw new Error('Authentication required. Please sign in to access support data.')
@@ -109,8 +109,15 @@ export async function getRecord(table:string,id:string) {
 export async function searchRecords(table:string,query:string) { const result=await listRecords(table,2000); const q=query.trim().toLowerCase(); return {...result,records:q?result.records.filter(r=>Object.values(r).some(v=>String(v??'').toLowerCase().includes(q))):result.records} }
 
 export async function getMetadata() {
-  const data=await sheetsGet<{schema:Record<string,string[]>;options?:Record<string,string[]>;selects?:Record<string,string[]>}>(`${API_URL}?action=metadata`)
-  return {schema:data.schema||{},options:data.options||data.selects||{}}
+  try {
+    const data=await sheetsGet<{schema:Record<string,string[]>;options?:Record<string,string[]>;selects?:Record<string,string[]>}>(`${API_URL}?action=metadata`)
+    return {schema:data.schema||{},options:data.options||data.selects||{}}
+  } catch {
+    // Metadata is an enhancement for forms, not a dependency for Firestore.
+    // Keep the primary application usable when the legacy Apps Script mirror
+    // is unavailable.
+    return {schema:{},options:{}}
+  }
 }
 
 export async function createRecord(table:string,record:ApiRecord) { const created=await createFirestoreRecord(table,record); return {success:true,record:created as ApiRecord} }
