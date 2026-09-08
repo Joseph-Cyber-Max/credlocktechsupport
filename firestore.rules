@@ -18,12 +18,19 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.status == 'ACTIVE';
     }
 
-    // User profiles are keyed by Firebase Auth UID. A signed-in user may maintain
-    // their own safe profile fields; only an ADMIN may provision roles/status or
-    // manage another user's profile. Authentication credentials are never stored here.
+    // User profiles are keyed by Firebase Auth UID. A signed-in user may create
+    // only a pending, non-privileged profile for their own UID. ADMIN must
+    // provision ACTIVE access and privileged roles. This prevents a new account
+    // from granting itself ADMIN/ACTIVE access through the client.
     match /Users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && (
+        isAdmin() || (
+          request.auth.uid == uid
+          && (!('role' in request.resource.data) || request.resource.data.role == 'USER')
+          && (!('status' in request.resource.data) || request.resource.data.status == 'PENDING')
+        )
+      );
       allow update: if signedIn() && (
         isAdmin() || (
           request.auth.uid == uid
