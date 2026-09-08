@@ -4,14 +4,19 @@ Credlock Technical Support is a mobile-first operations control center for techn
 
 ## Architecture
 
-- **Primary backend:** Firebase Cloud Firestore + Firebase Authentication
-- **Secondary backend:** Google Sheets + Google Apps Script (`TicketDB`)
 - **Frontend:** React 19, TypeScript, TanStack Router/Start, Vite, Tailwind CSS 4 and custom responsive CSS
-- **Deployment:** Vercel for the TanStack Start web application, with GitHub Actions build verification
-- **Server boundary:** Existing Netlify Functions for provider webhooks, AI and privileged integrations
-- **Omnichannel:** WhatsApp conversation workspace with ticket linkage and AI triage architecture
+- **Backend:** Google Apps Script Web App
+- **Database:** Google Sheets
+- **Files:** Google Drive through Apps Script
+- **Source control:** GitHub
+- **Deployment:** GitHub Pages for the frontend
+- **Authentication:** Apps Script session authentication backed by the `Auth Users` sheet
 
-Firebase Cloud Firestore is the source of truth for new application transactions. Google Sheets remains the reporting/legacy mirror and management-friendly operational surface.
+The application data flow is intentionally simple:
+
+`React frontend → fetch/AJAX → Google Apps Script → Google Sheets / Google Drive`
+
+Firebase/Firestore is no longer the application data source. Vercel/Netlify are not required for the core ticketing system.
 
 ## Core capabilities
 
@@ -22,10 +27,11 @@ Firebase Cloud Firestore is the source of truth for new application transactions
 - BNPL operations
 - Knowledge base and response workflows
 - Audit and permissions
-- WhatsApp/omnichannel workspace
-- AI-assisted triage and automatic ticket creation architecture
+- WhatsApp/omnichannel workspace architecture
+- AI-assisted triage architecture
 - Responsive desktop/tablet/mobile interface
-- Firebase-first data layer with authenticated Google Sheets fallback during migration
+- Google Sheets reporting and operational data
+- Google Drive ticket attachments
 - Admin Control Center for users, officers, departments, permissions, system configuration and audit records
 
 ## Frontend routes
@@ -35,22 +41,24 @@ Firebase Cloud Firestore is the source of truth for new application transactions
 - `/omnichannel` — WhatsApp/unified conversation workspace
 - `/workspace` — advanced Credlock operations workspace
 
-## Configuration
+## Apps Script setup
 
-Copy `.env.example` to your deployment configuration and provide Firebase web configuration values plus the Apps Script `/exec` URL.
+Open `apps-script/Code.gs` in Google Apps Script.
 
-Never commit Firebase service-account keys, WhatsApp access tokens or OpenAI API keys. Provider secrets belong in server-side environment variables.
+1. Run `setupBackend()` once and approve the requested Google permissions.
+2. Run `createAuthUser('your-email@example.com','your-password','ADMIN','Technical Support')` once to create the first administrator.
+3. Deploy the script as a Web App, executing as the script owner and allowing the intended users to access it.
+4. Copy the deployed `/exec` URL into `VITE_APPS_SCRIPT_URL` in the frontend deployment configuration.
+5. Publish a new Apps Script deployment version whenever `Code.gs` changes.
 
-## Google Sheets backend
+The backend creates and manages the required Sheets tables, session authentication, ticket IDs, SLA calculations, audit logs and Drive attachments.
 
-The existing Apps Script endpoint remains available as the secondary integration and reporting mirror. Existing Ticket IDs and Record IDs should be retained during migration. Sheets fallback reads are restricted to authenticated operators; Firestore remains the primary transaction store.
+## Security model
 
-## Firebase security
+The browser never connects directly to Google Sheets. All reads and writes go through Apps Script. Operational requests require a valid Apps Script session token. Passwords are stored as SHA-256 hashes in the `Auth Users` sheet. Administrative deletion is restricted to `ADMIN` sessions.
 
-Firestore Security Rules require authenticated active staff profiles for operational data. Only an `ADMIN` profile may change roles/status or perform destructive operations. Self-created user profiles cannot self-promote to administrative or active-staff privileges.
+Do not commit passwords, access tokens or private provider credentials to GitHub.
 
-Firebase Storage attachments are intentionally disabled until a separately approved storage strategy exists.
+## Zite migration
 
-## Firebase migration
-
-See `docs/PRIMARY-BACKEND-ARCHITECTURE.md` for the source-of-truth policy, migration strategy and security requirements. Zite is treated as the migration source/schema reference, not as the runtime application database.
+Zite remains the schema/reference source for the ticketing model. Existing Ticket IDs and Record IDs should be retained when importing or migrating historical data into Google Sheets.
