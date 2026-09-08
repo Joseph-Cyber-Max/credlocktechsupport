@@ -5,9 +5,11 @@ import { routeTree } from './routeTree.gen'
 
 // Create a new router instance
 export const getRouter = () => {
+  const basepath = import.meta.env.BASE_URL.replace(/\/$/, '')
+
   const router = createRouter({
     routeTree,
-    basepath: '/credlocktechsupport',
+    basepath,
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
   })
