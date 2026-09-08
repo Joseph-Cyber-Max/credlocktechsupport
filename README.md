@@ -23,6 +23,7 @@ Firebase/Firestore is no longer the application data source. Vercel/Netlify are 
 - Command Center and live queue
 - Ticket intake, assignment, SLA, escalation, resolution, closure and reopen
 - Customer and merchant support
+- Customer/device/IMEI/NIN/loan reference tracking
 - Incidents and recovery operations
 - BNPL operations
 - Knowledge base and response workflows
@@ -34,6 +35,19 @@ Firebase/Firestore is no longer the application data source. Vercel/Netlify are 
 - Google Drive ticket attachments
 - Admin Control Center for users, officers, departments, permissions, system configuration and audit records
 
+## Advanced operations
+
+The Apps Script backend now includes safe production-sheet migration plus operational utilities for:
+
+- SLA-breach snapshots and breach queue analysis
+- Duplicate device/IMEI/NIN detection
+- Global search across operational tables
+- Bulk ticket updates with audit trails
+- Queue/category/officer workload analytics
+- Backend schema validation and health checks
+
+These utilities are in `apps-script/BackendConfig.gs` and `apps-script/AdvancedOperations.gs`.
+
 ## Frontend routes
 
 - `/` — ticketing command center
@@ -41,17 +55,23 @@ Firebase/Firestore is no longer the application data source. Vercel/Netlify are 
 - `/omnichannel` — WhatsApp/unified conversation workspace
 - `/workspace` — advanced Credlock operations workspace
 
-## Apps Script setup
+## Production Google Sheet
 
-Open `apps-script/Code.gs` in Google Apps Script.
+The production backend is pinned to the existing Credlock Technical Support Google Sheet. The production ID is configured in `apps-script/BackendConfig.gs`.
 
-1. Run `setupBackend()` once and approve the requested Google permissions.
-2. Run `createAuthUser('your-email@example.com','your-password','ADMIN','Technical Support')` once to create the first administrator.
-3. Deploy the script as a Web App, executing as the script owner and allowing the intended users to access it.
-4. Copy the deployed `/exec` URL into `VITE_APPS_SCRIPT_URL` in the frontend deployment configuration.
-5. Publish a new Apps Script deployment version whenever `Code.gs` changes.
+**Important:** do not run the legacy destructive `setupBackend()` against a sheet containing real records. The legacy function can clear/rewrite a sheet when its header order differs from the current schema.
 
-The backend creates and manages the required Sheets tables, session authentication, ticket IDs, SLA calculations, audit logs and Drive attachments.
+Instead, in Google Apps Script run:
+
+1. `configureCredlockProductionBackend()` — points Apps Script at the production sheet.
+2. `safeSetupBackend()` — creates missing tabs and appends missing headers without clearing existing rows.
+3. `validateCredlockBackend()` — verifies that all required tabs and schema headers exist.
+4. `createAuthUser('your-email@example.com','your-password','ADMIN','Technical Support')` — creates the first administrator.
+5. Deploy the script as a Web App, executing as the script owner and allowing the intended users to access it.
+6. Put the deployed `/exec` URL into `VITE_APPS_SCRIPT_URL` for the frontend deployment.
+7. Publish a new Apps Script deployment version whenever backend code changes.
+
+The safe migration preserves existing Record IDs, Ticket IDs and historical rows.
 
 ## Security model
 
