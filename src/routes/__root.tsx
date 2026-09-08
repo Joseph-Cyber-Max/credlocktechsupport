@@ -1,6 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { FormEvent, type ReactNode, useState } from 'react'
-import { authErrorMessage, signIn, useFirebaseAuth } from '../lib/auth'
+import { authErrorMessage, signIn, useSupportAuth } from '../lib/auth'
 import '../styles.css'
 import '../auth.css'
 
@@ -27,7 +27,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function AuthGate({ children }: { children: ReactNode }) {
-  const { user, loading } = useFirebaseAuth()
+  const { user, loading } = useSupportAuth()
   if (loading) return <div className="credlock-login-loading">Loading Credlock Support…</div>
   if (!user) return <LoginScreen />
   return <>{children}</>
@@ -41,7 +41,7 @@ function LoginScreen() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setBusy(true)
-    try { await signIn(email, password) }
+    try { await signIn(email, password); window.location.reload() }
     catch (err) { setError(authErrorMessage(err)) }
     finally { setBusy(false) }
   }
