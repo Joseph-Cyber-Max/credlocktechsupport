@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  VITE_APPS_SCRIPT_URL: ${{ vars.VITE_APPS_SCRIPT_URL }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,5 +30,21 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Validate Apps Script configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_APPS_SCRIPT_URL:-}" ]; then
+            echo "VITE_APPS_SCRIPT_URL is not configured as a GitHub repository variable."
+            echo "Add the deployed Google Apps Script Web App /exec URL as repository variable VITE_APPS_SCRIPT_URL."
+            exit 1
+          fi
+          case "$VITE_APPS_SCRIPT_URL" in
+            https://script.google.com/macros/s/*/exec) ;;
+            *)
+              echo "VITE_APPS_SCRIPT_URL must be a Google Apps Script /exec URL."
+              exit 1
+              ;;
+          esac
       - name: Build application
         run: pnpm build
