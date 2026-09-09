@@ -21,22 +21,21 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-      - name: Validate Apps Script configuration
+      - name: Configure Apps Script endpoint
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "${VITE_APPS_SCRIPT_URL:-}" ] && [ -f .env.production ]; then
+            VITE_APPS_SCRIPT_URL="$(sed -n 's/^VITE_APPS_SCRIPT_URL=//p' .env.production | head -1)"
+            echo "VITE_APPS_SCRIPT_URL=$VITE_APPS_SCRIPT_URL" >> "$GITHUB_ENV"
+          fi
           if [ -z "${VITE_APPS_SCRIPT_URL:-}" ]; then
-            echo "VITE_APPS_SCRIPT_URL is not configured as a GitHub repository variable."
-            echo "Add the deployed Google Apps Script Web App /exec URL as repository variable VITE_APPS_SCRIPT_URL."
+            echo "VITE_APPS_SCRIPT_URL is not configured."
             exit 1
           fi
           case "$VITE_APPS_SCRIPT_URL" in
@@ -46,5 +45,7 @@ jobs:
               exit 1
               ;;
           esac
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
       - name: Build application
         run: pnpm build
