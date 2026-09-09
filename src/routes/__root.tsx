@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { FormEvent, type ReactNode, useState } from 'react'
-import { authErrorMessage, signIn, useSupportAuth } from '../lib/auth'
+import { LogOut } from 'lucide-react'
+import { authErrorMessage, signIn, signOutUser, useSupportAuth } from '../lib/auth'
 import '../styles.css'
 import '../auth.css'
 
@@ -30,7 +31,12 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading } = useSupportAuth()
   if (loading) return <div className="credlock-login-loading">Loading Credlock Support…</div>
   if (!user) return <LoginScreen />
-  return <>{children}</>
+  return <><div className="credlock-session-bar"><div><strong>{String(user.Email || 'Authorized user')}</strong><span>{String(user.Role || 'STAFF')} · {String(user.Department || 'Technical Support')}</span></div><button type="button" onClick={() => void handleLogout()} title="Sign out"><LogOut size={15}/> Logout</button></div>{children}</>
+}
+
+async function handleLogout() {
+  await signOutUser()
+  window.location.reload()
 }
 
 function LoginScreen() {
