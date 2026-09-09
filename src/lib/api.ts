@@ -7,6 +7,7 @@ const TOKEN_KEY = 'credlock_support_session'
 const REQUEST_TIMEOUT_MS = 20000
 
 export function backendConfigured() { return Boolean(API_URL) }
+export function getBackendEndpoint() { return API_URL }
 export function usingFallbackBackend() { return false }
 export function getSessionToken() { return localStorage.getItem(TOKEN_KEY) || '' }
 export function setSessionToken(token: string) { localStorage.setItem(TOKEN_KEY, token) }
@@ -69,7 +70,7 @@ export async function getSession() {
   }
 }
 
-export async function getHealth() { return getRequest<{ status: string; system: string; version: string; timestamp: string }>('health') }
+export async function getHealth() { return getRequest<{ status?: string; system?: string; service?: string; version: string; timestamp?: string; time?: string }>('health') }
 
 export async function getMetadata() {
   const data = await getRequest<{ schema: Record<string, string[]>; selects?: Record<string, string[]>; options?: Record<string, string[]> }>('metadata')
