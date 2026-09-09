@@ -14,7 +14,9 @@ Credlock Technical Support is a mobile-first operations control center for techn
 
 The application data flow is intentionally simple:
 
-`React frontend → fetch/AJAX → Google Apps Script → Google Sheets / Google Drive`
+`React frontend → Fetch API → Google Apps Script → Google Sheets / Google Drive`
+
+The frontend uses modern TypeScript, `fetch()`, async/await and AbortController. No XMLHttpRequest or AJAX library is required.
 
 Firebase/Firestore is no longer the application data source. Vercel/Netlify are not required for the core ticketing system.
 
@@ -47,6 +49,10 @@ The Apps Script backend now includes safe production-sheet migration plus operat
 - Backend schema validation and health checks
 
 These utilities are in `apps-script/BackendConfig.gs` and `apps-script/AdvancedOperations.gs`.
+
+## Frontend service layer
+
+The ticketing frontend has a typed service layer in `src/lib/ticketService.ts`, domain types in `src/lib/ticketTypes.ts`, and reusable queue/SLA selectors in `src/lib/ticketSelectors.ts`. This keeps ticket workflow logic separate from page rendering and makes future workspace improvements safer.
 
 ## Frontend routes
 
