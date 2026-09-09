@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react'
 import { authErrorMessage, signIn, signOutUser, useSupportAuth } from '../lib/auth'
 import '../styles.css'
 import '../auth.css'
+import '../session-bar.css'
 
 export const Route = createRootRoute({
   head: () => ({
