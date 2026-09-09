@@ -1,40 +1,50 @@
 export type ApiRecord = Record<string, unknown>
+
 type ApiEnvelope<T> = T & { success?: boolean; ok?: boolean; error?: string; message?: string }
 
-const FALLBACK_API_URL = 'https://script.google.com/macros/s/AKfycbx_gTo9bQ14nOZq3gFdJ_EpMCRVMyrMJZoN3r2w3WUcGgOQp-mpMooxnjaOJAHXjz7YOw/exec'
-export const API_URL = (import.meta.env.VITE_APPS_SCRIPT_URL || FALLBACK_API_URL).replace(/\/$/, '')
+const API_URL = String(import.meta.env.VITE_APPS_SCRIPT_URL || '').replace(/\/$/, '')
 const TOKEN_KEY = 'credlock_support_session'
+const REQUEST_TIMEOUT_MS = 20000
 
 export function backendConfigured() { return Boolean(API_URL) }
-export function usingFallbackBackend() { return !import.meta.env.VITE_APPS_SCRIPT_URL }
+export function usingFallbackBackend() { return false }
 export function getSessionToken() { return localStorage.getItem(TOKEN_KEY) || '' }
 export function setSessionToken(token: string) { localStorage.setItem(TOKEN_KEY, token) }
 export function clearSessionToken() { localStorage.removeItem(TOKEN_KEY) }
 
-async function parseResponse<T>(response: Response): Promise<ApiEnvelope<T>> {
-  const raw = await response.text()
-  let data: ApiEnvelope<T>
-  try { data = JSON.parse(raw) as ApiEnvelope<T> } catch { throw new Error(`Backend returned invalid JSON (${response.status}).`) }
-  if (!response.ok || data.success === false || data.ok === false) throw new Error(data.error || data.message || `Request failed (${response.status})`)
-  return data
+async function request<T>(url: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+  if (!API_URL) throw new Error('The Apps Script backend is not configured. Set VITE_APPS_SCRIPT_URL.')
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal, cache: 'no-store', redirect: 'follow' })
+    const raw = await response.text()
+    let data: ApiEnvelope<T>
+    try { data = JSON.parse(raw) as ApiEnvelope<T> } catch { throw new Error(`Backend returned invalid JSON (${response.status}).`) }
+    if (!response.ok || data.success === false || data.ok === false) throw new Error(data.error || data.message || `Request failed (${response.status})`)
+    return data
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('The backend request timed out. Please try again.')
+    throw error
+  } finally { window.clearTimeout(timer) }
+}
+
+function withToken(params: Record<string, unknown>) {
+  const token = getSessionToken()
+  return token ? { ...params, token } : params
 }
 
 async function getRequest<T>(action: string, params: Record<string, unknown> = {}) {
-  const query = new URLSearchParams({ action, ...Object.fromEntries(Object.entries(params).map(([k,v]) => [k, String(v)])) })
-  const token = getSessionToken()
-  if (token) query.set('token', token)
-  return parseResponse<T>(await fetch(`${API_URL}?${query.toString()}`, { cache: 'no-store', redirect: 'follow' }))
+  const query = new URLSearchParams({ action, ...Object.fromEntries(Object.entries(withToken(params)).map(([k, v]) => [k, String(v)])) })
+  return request<T>(`${API_URL}?${query.toString()}`)
 }
 
 async function postRequest<T>(body: Record<string, unknown>) {
-  const token = getSessionToken()
-  const payload = token ? { ...body, token } : body
-  return parseResponse<T>(await fetch(API_URL, {
+  return request<T>(API_URL, {
     method: 'POST',
-    redirect: 'follow',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-  }))
+    body: JSON.stringify(withToken(body)),
+  })
 }
 
 export async function login(email: string, password: string) {
@@ -45,7 +55,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function logout() {
-  try { await postRequest({ action: 'logout' }) } finally { clearSessionToken() }
+  try { if (getSessionToken()) await postRequest({ action: 'logout' }) } finally { clearSessionToken() }
 }
 
 export async function getSession() {
@@ -62,7 +72,7 @@ export async function getSession() {
 export async function getHealth() { return getRequest<{ status: string; system: string; version: string; timestamp: string }>('health') }
 
 export async function getMetadata() {
-  const data = await getRequest<{ schema: Record<string,string[]>; selects?: Record<string,string[]>; options?: Record<string,string[]> }>('metadata')
+  const data = await getRequest<{ schema: Record<string, string[]>; selects?: Record<string, string[]>; options?: Record<string, string[]> }>('metadata')
   return { schema: data.schema || {}, options: data.options || data.selects || {} }
 }
 
@@ -97,7 +107,8 @@ export async function deleteRecord(table: string, id: string) {
   return { success: true, deleted: Boolean(data.deleted) }
 }
 
-export async function ticketAction(id: string, action: 'assign'|'respond'|'pending'|'resolve'|'close'|'reopen'|'escalate', payload: ApiRecord = {}) {
+export type TicketAction = 'assign' | 'respond' | 'pending' | 'resolve' | 'close' | 'reopen' | 'escalate'
+export async function ticketAction(id: string, action: TicketAction, payload: ApiRecord = {}) {
   const data = await postRequest<{ record: ApiRecord }>({ action: 'ticketAction', id, ticketAction: action, payload })
   return { success: true, record: data.record }
 }
@@ -113,11 +124,10 @@ export async function getDashboard() {
 }
 
 export async function uploadAttachment(file: File) {
-  const bytes = await file.arrayBuffer()
+  const bytes = new Uint8Array(await file.arrayBuffer())
   let binary = ''
   const chunk = 0x8000
-  const view = new Uint8Array(bytes)
-  for (let i = 0; i < view.length; i += chunk) binary += String.fromCharCode(...view.subarray(i, i + chunk))
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
   const data = await postRequest<{ file: ApiRecord }>({ action: 'upload', name: file.name, mimeType: file.type, data: btoa(binary) })
   return { success: true, file: data.file }
 }
